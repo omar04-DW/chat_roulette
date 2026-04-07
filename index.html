@@ -1,89 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mystery Chat Roulette</title>
-    <link rel="manifest" href="./manifest.json">
-<link rel="stylesheet" href="style.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    <script src="https://unpkg.com/feather-icons"></script>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
-</head>
-<body class="bg-gray-100 min-h-screen">
-    <div id="app" class="container mx-auto px-4 py-8">
-        <!-- Language Selection Screen -->
-        <div id="language-screen" class="text-center">
-            <h1 class="text-3xl font-bold mb-8">Mystery Chat Roulette 🎭</h1>
-            <div class="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
-                <h2 class="text-xl font-semibold mb-4">Choose Language</h2>
-                <div class="space-y-4">
-                    <button onclick="setLanguage('fr')" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition">
-                        Français 🇫🇷
-                    </button>
-                    <button onclick="setLanguage('en')" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition">
-                        English 🇬🇧
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Menu Screen (hidden by default) -->
-        <div id="main-menu" class="hidden text-center">
-            <h1 class="text-3xl font-bold mb-8">Mystery Chat Roulette 🎭</h1>
-            <div class="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
-                <h2 class="text-xl font-semibold mb-4" data-i18n="main_menu_title">Main Menu</h2>
-                <div class="space-y-4">
-                    <button onclick="showCreateRoom()" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-lg transition" data-i18n="create_room">
-                        Create Room
-                    </button>
-                    <button onclick="showJoinRoom()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition" data-i18n="join_room">
-                        Join Room
-                    </button>
-                    <button onclick="toggleLanguage()" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition flex items-center justify-center">
-                        <i data-feather="globe" class="mr-2"></i>
-                        <span data-i18n="change_language">Change Language</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Create Room Screen (hidden by default) -->
-        <div id="create-room" class="hidden">
-            <!-- Content will be loaded dynamically -->
-        </div>
-
-        <!-- Join Room Screen (hidden by default) -->
-        <div id="join-room" class="hidden">
-            <!-- Content will be loaded dynamically -->
-        </div>
-
-        <!-- Lobby Screen (hidden by default) -->
-        <div id="lobby" class="hidden">
-            <!-- Content will be loaded dynamically -->
-        </div>
-
-        <!-- Game Screens (hidden by default) -->
-        <div id="game-screens" class="hidden">
-            <!-- Content will be loaded dynamically based on game phase -->
-        </div>
-    </div>
-    <!-- Web Components -->
-    <script type="module" src="components/language-selector.js"></script>
-    <script type="module" src="components/room-creator.js"></script>
-    <script type="module" src="components/room-joiner.js"></script>
-    <script type="module" src="components/game-lobby.js"></script>
-    <script type="module" src="components/question-writer.js"></script>
-
-    <!-- Main Script -->
-    <script type="module" src="script.js"></script>
-<script>
-        feather.replace();
-    </script>
-<script src="https://huggingface.co/deepsite/deepsite-badge.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mystery-game</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
