@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { db, ensureAuth } from '../firebase';
 import { doc, setDoc, updateDoc, onSnapshot, runTransaction } from 'firebase/firestore';
+import { GAGES } from '../utils/i18n';
 
 const GameContext = createContext();
 export const useGame = () => useContext(GameContext);
@@ -19,7 +20,6 @@ export function GameProvider({ children }) {
   const [room, setRoom] = useState(null);
   const [error, setError] = useState(null);
   const [screen, setScreen] = useState('lang');
-  // lang -> rules -> menu -> create/join -> lobby -> game
 
   useEffect(() => { ensureAuth().then(u => setUid(u.uid)); }, []);
 
@@ -49,6 +49,11 @@ export function GameProvider({ children }) {
       questions: [], selectedQuestion: null, questionAuthor: null,
       mc: null, target: null, targetChoice: null,
       accusedUid: null, accusationCorrect: null, answer: null,
+      // Gage fields
+      gageVotes: {}, // { uid: 'PHYSIQUE' | 'BOISSON' | 'GENANT' }
+      gageCategory: null,
+      gageResult: null,
+      gageTimerStart: null,
       createdAt: Date.now()
     };
     await setDoc(doc(db, 'rooms', code), data);
@@ -82,6 +87,7 @@ export function GameProvider({ children }) {
       selectedQuestion: null, questionAuthor: null,
       mc: null, target: null, targetChoice: null,
       accusedUid: null, accusationCorrect: null, answer: null,
+      gageVotes: {}, gageCategory: null, gageResult: null, gageTimerStart: null,
     });
   }, [roomId, room, uid]);
 
@@ -132,15 +138,101 @@ export function GameProvider({ children }) {
       p.uid === room.target ? { ...p, accusationsLeft: Math.max(0, p.accusationsLeft - 1) } : p
     );
     if (isCorrect) {
+      // Correct accusation -> round end, no gage
       await updateDoc(doc(db, 'rooms', roomId), {
         phase: 'roundEnd', accusedUid, accusationCorrect: true, players: updatedPlayers,
       });
     } else {
+      // WRONG accusation -> go to GAGE VOTE (not answering!)
       await updateDoc(doc(db, 'rooms', roomId), {
-        phase: 'accusationResult', accusedUid, accusationCorrect: false, players: updatedPlayers,
+        phase: 'gageVote',
+        accusedUid,
+        accusationCorrect: false,
+        players: updatedPlayers,
+        gageVotes: {},
+        gageCategory: null,
+        gageResult: null,
+        gageTimerStart: Date.now(),
       });
     }
   }, [room, roomId]);
+
+  // Submit gage vote
+  const submitGageVote = useCallback(async (category) => {
+    if (!roomId || !uid || !room) return;
+    // Target (punished player) cannot vote
+    if (uid === room.target) return;
+    const roomRef = doc(db, 'rooms', roomId);
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(roomRef);
+      const d = snap.data();
+      const votes = d.gageVotes || {};
+      if (votes[uid]) return; // already voted
+      votes[uid] = category;
+      tx.update(roomRef, { gageVotes: votes });
+    });
+  }, [roomId, uid, room]);
+
+  // Host auto-advance: all votes in OR timer expired -> resolve gage category
+  useEffect(() => {
+    if (!room || room.phase !== 'gageVote' || room.host !== uid) return;
+
+    const votes = room.gageVotes || {};
+    const eligibleVoters = room.players.filter(p => p.uid !== room.target);
+    const allVoted = eligibleVoters.every(p => votes[p.uid]);
+
+    if (allVoted) {
+      resolveGageVote();
+    }
+  }, [room?.gageVotes, room?.phase]);
+
+  // Timer: host checks if 10s elapsed
+  useEffect(() => {
+    if (!room || room.phase !== 'gageVote' || room.host !== uid) return;
+    if (!room.gageTimerStart) return;
+
+    const elapsed = Date.now() - room.gageTimerStart;
+    const remaining = 10000 - elapsed;
+
+    if (remaining <= 0) {
+      resolveGageVote();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      resolveGageVote();
+    }, remaining);
+
+    return () => clearTimeout(timer);
+  }, [room?.phase, room?.gageTimerStart]);
+
+  const resolveGageVote = useCallback(async () => {
+    if (!room || !roomId) return;
+
+    const votes = room.gageVotes || {};
+    const counts = { PHYSIQUE: 0, BOISSON: 0, GENANT: 0 };
+    Object.values(votes).forEach(v => { if (counts[v] !== undefined) counts[v]++; });
+
+    const maxCount = Math.max(...Object.values(counts));
+    const winners = Object.keys(counts).filter(k => counts[k] === maxCount);
+    const winningCategory = winners[Math.floor(Math.random() * winners.length)];
+
+    // Pick random gage from category
+    const gageKeys = GAGES[winningCategory];
+    const gageResult = gageKeys[Math.floor(Math.random() * gageKeys.length)];
+
+    await updateDoc(doc(db, 'rooms', roomId), {
+      phase: 'gageWheel',
+      gageCategory: winningCategory,
+      gageResult: gageResult,
+    });
+  }, [room, roomId]);
+
+  // After gage wheel animation, host moves to result
+  const showGageResult = useCallback(async () => {
+    if (!roomId) return;
+    await updateDoc(doc(db, 'rooms', roomId), { phase: 'gageResult' });
+  }, [roomId]);
 
   const submitAnswer = useCallback(async (text) => {
     await updateDoc(doc(db, 'rooms', roomId), { phase: 'roundEnd', answer: text });
@@ -153,19 +245,9 @@ export function GameProvider({ children }) {
       questions: [], selectedQuestion: null, questionAuthor: null,
       mc: null, target: null, targetChoice: null,
       accusedUid: null, accusationCorrect: null, answer: null,
+      gageVotes: {}, gageCategory: null, gageResult: null, gageTimerStart: null,
     });
   }, [room, uid, roomId]);
-
-  // Wrong accusation -> force answer after delay
-  useEffect(() => {
-    if (!room || room.phase !== 'accusationResult') return;
-    if (room.accusationCorrect === false && room.host === uid) {
-      const timer = setTimeout(() => {
-        updateDoc(doc(db, 'rooms', roomId), { phase: 'answering', targetChoice: 'answer' });
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [room?.phase, room?.accusationCorrect]);
 
   const me = room?.players?.find(p => p.uid === uid);
   const isHost = room?.host === uid;
@@ -178,6 +260,7 @@ export function GameProvider({ children }) {
       screen, setScreen, createRoom, joinRoom, startGame,
       submitQuestion, spinWheel, chooseAnswer, chooseAccuse,
       submitAccusation, submitAnswer, nextRound,
+      submitGageVote, showGageResult,
       me, isHost, isMC, isTarget,
     }}>
       {children}
